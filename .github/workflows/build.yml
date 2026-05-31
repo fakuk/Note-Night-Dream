@@ -21,6 +21,7 @@ jobs:
           npm install --legacy-peer-deps
 
       - name: Build Android Preview (APK)
-        run: eas build --platform android --profile preview --local false
+        run: eas build --platform android --profile preview --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
