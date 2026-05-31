@@ -14,16 +14,11 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: 'npm'
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Install dependencies
+      - name: Install EAS CLI and Dependencies
         run: |
+          npm install -g eas-cli
           if [ -f yarn.lock ]; then
             yarn install
           else
@@ -32,3 +27,6 @@ jobs:
 
       - name: Build Android Preview (APK)
         run: eas build --platform android --profile preview --local false
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
