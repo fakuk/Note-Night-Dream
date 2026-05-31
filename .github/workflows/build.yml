@@ -14,19 +14,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'npm'
 
       - name: Install EAS CLI and Dependencies
         run: |
           npm install -g eas-cli
-          if [ -f yarn.lock ]; then
-            yarn install
-          else
-            npm install
-          fi
+          npm install --legacy-peer-deps
 
       - name: Build Android Preview (APK)
         run: eas build --platform android --profile preview --local false
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          
