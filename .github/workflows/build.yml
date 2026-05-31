@@ -1,7 +1,7 @@
 name: Build APK
 on:
   push:
-    branches: [ main, master ] # Jab bhi aap code push karenge build start ho jayegi
+    branches: [ main, master ]
 
 jobs:
   build:
@@ -23,8 +23,12 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          if [ -f yarn.lock ]; then
+            yarn install
+          else
+            npm install
+          fi
 
       - name: Build Android Preview (APK)
         run: eas build --platform android --profile preview --local false
-        
