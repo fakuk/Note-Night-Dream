@@ -2,11 +2,6 @@
   "expo": {
     "name": "Note Night Dream",
     "slug": "note-night-dream",
-    "extra": {
-      "eas": {
-        "projectId": "91d6a9b4-afd3-4d0d-a3de-c8954e5d8a28"
-      }
-    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,7 +25,7 @@
         "android.permission.READ_MEDIA_AUDIO"
       ]
     },
-        "plugins": [
+    "plugins": [
       [
         "expo-document-picker",
         {
@@ -40,6 +35,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "apni-expo-project-id-yahan-likhein"
+        "projectId": "91d6a9b4-afd3-4d0d-a3de-c8954e5d8a28"
       }
     }
+  }
+}
