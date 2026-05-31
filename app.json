@@ -4,16 +4,34 @@
     "slug": "note-night-dream",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0f1a"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "supportsTabletMode": true
+    },
     "android": {
-      "package": "com.notenightdream.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0f1a"
+      },
+      "package": "com.example.notenightdream",
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
@@ -22,11 +40,6 @@
           "iCloudContainerEnvironment": "Production"
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "91d6a9b4-afd3-4d0d-a3de-c8954e5d8a28"
-      }
-    }
+    ]
   }
 }

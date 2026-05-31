@@ -1,302 +1,383 @@
-// src/screens/DashboardScreen.js
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Animated, StatusBar, TextInput, Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useApp } from '../context/AppContext';
-import DreamCard from '../components/DreamCard';
-import { COLORS } from '../utils/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-export default function DashboardScreen({ navigation }) {
-  const { dreams, refreshDreams } = useApp();
-  const [search, setSearch] = useState('');
-  const fabScale  = useRef(new Animated.Value(1)).current;
-  const fabGlow   = useRef(new Animated.Value(0)).current;
-  const headerAnim = useRef(new Animated.Value(0)).current;
+const DashboardScreen = ({ navigation }) => {
+  const [dreams, setDreams] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fabScale] = useState(new Animated.Value(1));
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', refreshDreams);
-    return unsubscribe;
-  }, [navigation]);
+  useFocusEffect(
+    useCallback(() => {
+      loadDreams();
+    }, [])
+  );
 
-  useEffect(() => {
-    Animated.timing(headerAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(fabGlow, { toValue: 1, duration: 1500, useNativeDriver: true }),
-        Animated.timing(fabGlow, { toValue: 0, duration: 1500, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  const fabShadowOpacity = fabGlow.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
-  const fabShadowRadius  = fabGlow.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
-
-  const filtered = search.trim()
-    ? dreams.filter(d =>
-        d.title.toLowerCase().includes(search.toLowerCase()) ||
-        d.story.toLowerCase().includes(search.toLowerCase()) ||
-        d.category.toLowerCase().includes(search.toLowerCase())
-      )
-    : dreams;
+  const loadDreams = async () => {
+    try {
+      setIsLoading(true);
+      const dreamsData = await AsyncStorage.getItem('dreams');
+      if (dreamsData) {
+        const parsedDreams = JSON.parse(dreamsData);
+        setDreams(parsedDreams.sort((a, b) => new Date(b.date) - new Date(a.date)));
+      }
+    } catch (error) {
+      console.error('Error loading dreams:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFabPress = () => {
     Animated.sequence([
-      Animated.spring(fabScale, { toValue: 0.88, useNativeDriver: true }),
-      Animated.spring(fabScale, { toValue: 1,    useNativeDriver: true }),
-    ]).start(() => navigation.navigate('DreamEntry', { dream: null }));
+      Animated.timing(fabScale, { toValue: 0.9, duration: 100, useNativeDriver: true }),
+      Animated.timing(fabScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+
+    navigation.navigate('DreamEntry', { isEditing: false });
   };
 
-  const renderEmpty = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyMoon}>☽</Text>
-      <Text style={styles.emptyTitle}>No dreams yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Tap the glowing button below{'\n'}to record your first dream
-      </Text>
-    </View>
+  const handleDreamPress = (dream) => {
+    navigation.navigate('DreamDetail', { dream });
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      nightmare: '#ff6b9d',
+      lucid: '#00d4ff',
+      prophetic: '#ffd700',
+      recurring: '#ff8c00',
+      adventure: '#00ff88',
+      mystery: '#b19cd9',
+    };
+    return colors[category] || '#00d4ff';
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      nightmare: 'skull-outline',
+      lucid: 'eye-outline',
+      prophetic: 'crystal-ball',
+      recurring: 'repeat',
+      adventure: 'compass',
+      mystery: 'help-circle-outline',
+    };
+    return icons[category] || 'moon-new';
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const DreamCard = ({ dream }) => (
+    <TouchableOpacity
+      style={styles.dreamCard}
+      onPress={() => handleDreamPress(dream)}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        colors={['#0f1621', '#151d2a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.dreamCardGradient}
+      >
+        {/* Left Border Accent */}
+        <View
+          style={[
+            styles.dreamCardBorder,
+            { borderLeftColor: getCategoryColor(dream.category) },
+          ]}
+        />
+
+        {/* Category Badge */}
+        <View style={styles.dreamCardHeader}>
+          <View
+            style={[
+              styles.categoryBadge,
+              { backgroundColor: getCategoryColor(dream.category) + '20' },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={getCategoryIcon(dream.category)}
+              size={14}
+              color={getCategoryColor(dream.category)}
+            />
+            <Text
+              style={[
+                styles.categoryBadgeText,
+                { color: getCategoryColor(dream.category) },
+              ]}
+            >
+              {dream.category.charAt(0).toUpperCase() + dream.category.slice(1)}
+            </Text>
+          </View>
+          <Text style={styles.dreamDate}>{formatDate(dream.date)}</Text>
+        </View>
+
+        {/* Title */}
+        <Text style={styles.dreamTitle} numberOfLines={2}>
+          {dream.title}
+        </Text>
+
+        {/* Snippet */}
+        <Text style={styles.dreamSnippet} numberOfLines={3}>
+          {dream.story}
+        </Text>
+
+        {/* Footer */}
+        <View style={styles.dreamCardFooter}>
+          <MaterialCommunityIcons
+            name="arrow-right"
+            size={18}
+            color="#00d4ff"
+          />
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-
+    <View style={styles.container}>
       {/* Header */}
-      <Animated.View style={[styles.header, { opacity: headerAnim }]}>
+      <View style={styles.header}>
         <View>
-          <Text style={styles.headerLabel}>DREAM JOURNAL</Text>
-          <Text style={styles.headerTitle}>Note Night Dream</Text>
+          <Text style={styles.headerGreeting}>Welcome back</Text>
+          <Text style={styles.headerTitle}>Your Dream Journal</Text>
         </View>
+        <View style={styles.headerIcon}>
+          <MaterialCommunityIcons
+            name="moon-waning-crescent"
+            size={32}
+            color="#00d4ff"
+          />
+        </View>
+      </View>
+
+      {/* Dreams List */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00d4ff" />
+        </View>
+      ) : dreams.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons
+            name="moon-new"
+            size={80}
+            color="#00d4ff40"
+          />
+          <Text style={styles.emptyTitle}>No dreams yet</Text>
+          <Text style={styles.emptyDescription}>
+            Start recording your dreams by tapping the button below
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={dreams}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <DreamCard dream={item} />}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Floating Action Button */}
+      <Animated.View
+        style={[
+          styles.fabContainer,
+          { transform: [{ scale: fabScale }] },
+        ]}
+      >
         <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={() => navigation.navigate('Settings')}
+          style={styles.fab}
+          onPress={handleFabPress}
+          activeOpacity={0.8}
         >
-          <Text style={styles.settingsIcon}>⚙</Text>
+          <LinearGradient
+            colors={['#00d4ff', '#0099cc']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={36}
+              color="#ffffff"
+            />
+          </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
-
-      {/* Stats bar */}
-      <View style={styles.statsBar}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{dreams.length}</Text>
-          <Text style={styles.statLabel}>Total Dreams</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {dreams.filter(d => d.category === 'Lucid').length}
-          </Text>
-          <Text style={styles.statLabel}>Lucid</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {dreams.filter(d => d.category === 'Nightmare').length}
-          </Text>
-          <Text style={styles.statLabel}>Nightmares</Text>
-        </View>
-      </View>
-
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <Text style={styles.searchIcon}>⌕</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search dreams…"
-          placeholderTextColor={COLORS.textMuted}
-          value={search}
-          onChangeText={setSearch}
-          selectionColor={COLORS.neonBlue}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Text style={styles.searchClear}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Dream list */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <DreamCard
-            dream={item}
-            onPress={() => navigation.navigate('DreamEntry', { dream: item })}
-          />
-        )}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* FAB */}
-      <Animated.View style={[
-        styles.fabShadow,
-        { shadowOpacity: fabShadowOpacity, shadowRadius: fabShadowRadius },
-      ]}>
-        <Animated.View style={{ transform: [{ scale: fabScale }] }}>
-          <TouchableOpacity style={styles.fab} onPress={handleFabPress} activeOpacity={0.85}>
-            <Text style={styles.fabIcon}>＋</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </Animated.View>
-    </SafeAreaView>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#0a0f1a',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#00d4ff15',
   },
-  headerLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.neonBlue,
-    letterSpacing: 3,
-    marginBottom: 2,
+  headerGreeting: {
+    fontSize: 14,
+    color: '#8899bb',
+    marginBottom: 4,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    fontFamily: 'serif',
-    letterSpacing: 0.5,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#ffffff',
   },
-  settingsBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.bgCard,
+  headerIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#00d4ff15',
     borderWidth: 1,
-    borderColor: COLORS.bgCardBorder,
-    alignItems: 'center',
+    borderColor: '#00d4ff30',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  settingsIcon: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 100,
   },
-  statsBar: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
+  dreamCard: {
     marginBottom: 16,
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 14,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#00d4ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  dreamCardGradient: {
+    padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.bgCardBorder,
-    padding: 14,
+    borderColor: '#00d4ff20',
+  },
+  dreamCardBorder: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderLeftWidth: 4,
+  },
+  dreamCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+    marginLeft: 8,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.neonBlue,
-    textShadowColor: COLORS.neonBlue,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.bgCardBorder,
-  },
-  searchWrap: {
+  categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: COLORS.bgInput,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.bgCardBorder,
-    paddingHorizontal: 12,
-    height: 44,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
-  searchIcon: {
+  categoryBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dreamDate: {
+    fontSize: 12,
+    color: '#8899bb',
+  },
+  dreamTitle: {
     fontSize: 18,
-    color: COLORS.textMuted,
-    marginRight: 8,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+    marginLeft: 8,
   },
-  searchInput: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontSize: 14,
+  dreamSnippet: {
+    fontSize: 13,
+    color: '#99aabb',
+    lineHeight: 18,
+    marginBottom: 12,
+    marginLeft: 8,
   },
-  searchClear: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    padding: 4,
-  },
-  emptyState: {
-    flex: 1,
+  dreamCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 80,
+    marginLeft: 8,
   },
-  emptyMoon: {
-    fontSize: 64,
-    color: COLORS.neonBlue,
-    opacity: 0.4,
-    marginBottom: 16,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: '#ffffff',
+    marginTop: 20,
     marginBottom: 8,
   },
-  emptySubtitle: {
+  emptyDescription: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: '#8899bb',
     textAlign: 'center',
-    lineHeight: 22,
   },
-  fabShadow: {
+  fabContainer: {
     position: 'absolute',
-    bottom: 28,
-    alignSelf: 'center',
-    shadowColor: COLORS.neonBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 20,
-    elevation: 16,
+    bottom: 30,
+    right: 20,
   },
   fab: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.neonBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 65,
+    height: 65,
+    borderRadius: 32.5,
+    overflow: 'hidden',
+    shadowColor: '#00d4ff',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 12,
   },
-  fabIcon: {
-    fontSize: 32,
-    color: '#0a0f1a',
-    fontWeight: '300',
-    lineHeight: 38,
+  fabGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
+
+export default DashboardScreen;

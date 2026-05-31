@@ -1,23 +1,37 @@
 {
   "name": "note-night-dream",
   "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "eject": "expo eject"
   },
   "dependencies": {
-    "expo": "~50.0.14",
+    "expo": "~50.0.0",
     "expo-status-bar": "~1.11.1",
     "react": "18.2.0",
     "react-native": "0.73.6",
-    "@react-native-async-storage/async-storage": "1.21.0",
-    "expo-document-picker": "~11.10.1",
-    "expo-file-system": "~16.0.8"
+    "@react-navigation/native": "^6.x.x",
+    "@react-navigation/stack": "^6.x.x",
+    "@react-navigation/bottom-tabs": "^6.x.x",
+    "react-native-screens": "^3.x.x",
+    "react-native-safe-area-context": "^4.x.x",
+    "@react-native-async-storage/async-storage": "^1.x.x",
+    "expo-file-system": "~15.x.x",
+    "expo-document-picker": "~11.x.x",
+    "expo-sharing": "~12.x.x",
+    "react-native-gesture-handler": "^2.x.x",
+    "react-native-reanimated": "^3.x.x",
+    "react-native-vector-icons": "^10.x.x",
+    "react-native-linear-gradient": "^2.x.x",
+    "@react-native-community/datetimepicker": "^7.x.x",
+    "date-fns": "^2.30.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.12.9"
   },
   "private": true
 }

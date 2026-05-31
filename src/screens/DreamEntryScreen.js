@@ -1,323 +1,444 @@
-// src/screens/DreamEntryScreen.js
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, Alert, StatusBar, Animated, KeyboardAvoidingView,
-  Platform, Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, CATEGORIES, CATEGORY_COLORS } from '../utils/theme';
-import { saveDream, deleteDream, createDream } from '../utils/storage';
-import { useApp } from '../context/AppContext';
-import CategoryBadge from '../components/CategoryBadge';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-const { width } = Dimensions.get('window');
+const CATEGORIES = ['nightmare', 'lucid', 'prophetic', 'recurring', 'adventure', 'mystery'];
 
-const GlassInput = ({ label, style, ...props }) => (
-  <View style={inputStyles.wrap}>
-    <Text style={inputStyles.label}>{label}</Text>
-    <TextInput
-      style={[inputStyles.input, style]}
-      placeholderTextColor={COLORS.textMuted}
-      selectionColor={COLORS.neonBlue}
-      {...props}
-    />
-  </View>
-);
+const DreamEntryScreen = ({ navigation, route }) => {
+  const { dream: editingDream } = route.params || {};
+  const isEditing = !!editingDream;
 
-const inputStyles = StyleSheet.create({
-  wrap: { marginBottom: 18 },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.neonBlue,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: COLORS.bgInput,
-    borderWidth: 1,
-    borderColor: COLORS.bgCardBorder,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: COLORS.textPrimary,
-    fontSize: 15,
-  },
-});
+  const [title, setTitle] = useState(editingDream?.title || '');
+  const [story, setStory] = useState(editingDream?.story || '');
+  const [selectedCategory, setSelectedCategory] = useState(editingDream?.category || 'lucid');
+  const [selectedDate, setSelectedDate] = useState(new Date(editingDream?.date || new Date()));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-export default function DreamEntryScreen({ route, navigation }) {
-  const { refreshDreams } = useApp();
-  const existing = route.params?.dream;
+  const getCategoryColor = (category) => {
+    const colors = {
+      nightmare: '#ff6b9d',
+      lucid: '#00d4ff',
+      prophetic: '#ffd700',
+      recurring: '#ff8c00',
+      adventure: '#00ff88',
+      mystery: '#b19cd9',
+    };
+    return colors[category] || '#00d4ff';
+  };
 
-  const [title,    setTitle]    = useState(existing?.title    || '');
-  const [story,    setStory]    = useState(existing?.story    || '');
-  const [date,     setDate]     = useState(existing?.date     || new Date().toISOString().split('T')[0]);
-  const [category, setCategory] = useState(existing?.category || 'Other');
-  const [saving,   setSaving]   = useState(false);
+  const getCategoryIcon = (category) => {
+    const icons = {
+      nightmare: 'skull-outline',
+      lucid: 'eye-outline',
+      prophetic: 'crystal-ball',
+      recurring: 'repeat',
+      adventure: 'compass',
+      mystery: 'help-circle-outline',
+    };
+    return icons[category] || 'moon-new';
+  };
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start();
-  }, []);
+  const handleDateChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Title required', 'Please give your dream a title.');
+      Alert.alert('Error', 'Please enter a dream title');
       return;
     }
-    setSaving(true);
-    const dream = createDream({
-      id: existing?.id,
-      title: title.trim(),
-      story: story.trim(),
-      date,
-      category,
-      createdAt: existing?.createdAt,
-    });
-    const ok = await saveDream(dream);
-    setSaving(false);
-    if (ok) {
-      await refreshDreams();
+    if (!story.trim()) {
+      Alert.alert('Error', 'Please enter your dream story');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let dreams = [];
+      const existingDreams = await AsyncStorage.getItem('dreams');
+      if (existingDreams) {
+        dreams = JSON.parse(existingDreams);
+      }
+
+      const dreamEntry = {
+        id: editingDream?.id || Date.now().toString(),
+        title: title.trim(),
+        story: story.trim(),
+        category: selectedCategory,
+        date: selectedDate.toISOString(),
+        createdAt: editingDream?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (isEditing) {
+        const index = dreams.findIndex((d) => d.id === editingDream.id);
+        if (index > -1) {
+          dreams[index] = dreamEntry;
+        }
+      } else {
+        dreams.push(dreamEntry);
+      }
+
+      await AsyncStorage.setItem('dreams', JSON.stringify(dreams));
       navigation.goBack();
-    } else {
-      Alert.alert('Error', 'Could not save dream. Please try again.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save dream');
+      console.error('Error saving dream:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Dream',
-      'This dream will be permanently deleted. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive',
-          onPress: async () => {
-            await deleteDream(existing.id);
-            await refreshDreams();
-            navigation.goBack();
-          },
-        },
-      ]
-    );
+  const formatDate = (date) => {
+    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backIcon}>←</Text>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#00d4ff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{existing ? 'Edit Dream' : 'New Dream'}</Text>
-          {existing ? (
-            <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-              <Text style={styles.deleteIcon}>🗑</Text>
-            </TouchableOpacity>
-          ) : <View style={{ width: 40 }} />}
+          <Text style={styles.headerTitle}>
+            {isEditing ? 'Edit Dream' : 'Record Your Dream'}
+          </Text>
+          <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={{
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }}>
-            <GlassInput
-              label="DREAM TITLE"
-              placeholder="What was it called?"
+        {/* Title Input */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Dream Title</Text>
+          <View style={styles.inputContainer}>
+            <MaterialCommunityIcons
+              name="moon-waning-crescent"
+              size={20}
+              color="#00d4ff"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Give your dream a name..."
+              placeholderTextColor="#4a5d7d"
               value={title}
               onChangeText={setTitle}
+              maxLength={100}
             />
+            <Text style={styles.charCount}>{title.length}/100</Text>
+          </View>
+        </View>
 
-            <GlassInput
-              label="DATE"
-              placeholder="YYYY-MM-DD"
-              value={date}
-              onChangeText={setDate}
-              keyboardType="numeric"
+        {/* Date Picker */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Date</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="calendar"
+              size={20}
+              color="#00d4ff"
+              style={styles.inputIcon}
             />
+            <Text style={styles.dateButtonText}>{formatDate(selectedDate)}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              textColor="#00d4ff"
+            />
+          )}
+        </View>
 
-            {/* Category selector */}
-            <View style={styles.catWrap}>
-              <Text style={styles.catLabel}>CATEGORY</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    onPress={() => setCategory(cat)}
-                    style={[
-                      styles.catPill,
-                      {
-                        backgroundColor: CATEGORY_COLORS[cat].bg,
-                        borderColor: category === cat ? CATEGORY_COLORS[cat].border : 'transparent',
-                        borderWidth: category === cat ? 1.5 : 0,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.catPillText, { color: CATEGORY_COLORS[cat].text }]}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+        {/* Category Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Category</Text>
+          <View style={styles.categoryGrid}>
+            {CATEGORIES.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryOption,
+                  selectedCategory === category && styles.categoryOptionSelected,
+                  {
+                    borderColor:
+                      selectedCategory === category
+                        ? getCategoryColor(category)
+                        : '#00d4ff30',
+                  },
+                ]}
+                onPress={() => setSelectedCategory(category)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={getCategoryIcon(category)}
+                  size={20}
+                  color={getCategoryColor(category)}
+                />
+                <Text
+                  style={[
+                    styles.categoryOptionText,
+                    {
+                      color: getCategoryColor(category),
+                    },
+                  ]}
+                >
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-            <GlassInput
-              label="DREAM STORY"
-              placeholder="Describe everything you remember… the vivid colors, the people, the feeling…"
+        {/* Story Input */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Your Story</Text>
+          <View style={styles.storyInputContainer}>
+            <TextInput
+              style={styles.storyTextInput}
+              placeholder="Write your dream in detail..."
+              placeholderTextColor="#4a5d7d"
               value={story}
               onChangeText={setStory}
               multiline
-              numberOfLines={10}
-              style={styles.storyInput}
+              maxLength={5000}
               textAlignVertical="top"
             />
+            <Text style={styles.storyCharCount}>{story.length}/5000</Text>
+          </View>
+        </View>
 
-            {/* Word count */}
-            <Text style={styles.wordCount}>
-              {story.trim() ? story.trim().split(/\s+/).length : 0} words
-            </Text>
-
-            {/* Save button */}
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.8}
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={isSaving}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#00d4ff', '#0099cc']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saveButtonGradient}
             >
-              <View style={styles.saveBtnInner}>
-                <Text style={styles.saveBtnText}>{saving ? 'Saving…' : '✦  Save Dream'}</Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={{ height: 40 }} />
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+              <MaterialCommunityIcons
+                name={isEditing ? 'check' : 'plus'}
+                size={20}
+                color="#ffffff"
+              />
+              <Text style={styles.saveButtonText}>
+                {isSaving ? 'Saving...' : isEditing ? 'Update' : 'Save Dream'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#0a0f1a',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.bgCardBorder,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: COLORS.bgCardBorder,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 18,
-    color: COLORS.neonBlue,
+    marginBottom: 30,
+    paddingTop: 10,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    fontFamily: 'serif',
+    color: '#ffffff',
   },
-  deleteBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,60,110,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,60,110,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteIcon: {
-    fontSize: 16,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20 },
-  catWrap: { marginBottom: 18 },
-  catLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.neonBlue,
-    letterSpacing: 1.5,
-    marginBottom: 10,
-  },
-  catScroll: { flexDirection: 'row' },
-  catPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  catPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  storyInput: {
-    minHeight: 180,
-    paddingTop: 12,
-    lineHeight: 22,
-  },
-  wordCount: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    textAlign: 'right',
-    marginTop: -10,
+  section: {
     marginBottom: 24,
-    letterSpacing: 0.3,
   },
-  saveBtn: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: COLORS.neonBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  saveBtnDisabled: {
-    opacity: 0.5,
-    shadowOpacity: 0,
-  },
-  saveBtnInner: {
-    backgroundColor: COLORS.neonBlue,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0a0f1a',
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00d4ff',
+    marginBottom: 10,
+    textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f1621',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00d4ff20',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#ffffff',
+    paddingVertical: 12,
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#8899bb',
+    marginLeft: 10,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f1621',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00d4ff20',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginLeft: 10,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  categoryOption: {
+    flex: 1,
+    minWidth: '48%',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    backgroundColor: '#0f1621',
+  },
+  categoryOptionSelected: {
+    backgroundColor: '#00d4ff10',
+  },
+  categoryOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  storyInputContainer: {
+    backgroundColor: '#0f1621',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00d4ff20',
+    padding: 12,
+    minHeight: 200,
+  },
+  storyTextInput: {
+    fontSize: 16,
+    color: '#ffffff',
+    flex: 1,
+  },
+  storyCharCount: {
+    fontSize: 12,
+    color: '#8899bb',
+    marginTop: 8,
+    textAlign: 'right',
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#00d4ff30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#00d4ff',
+  },
+  saveButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#00d4ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  saveButtonGradient: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 });
+
+export default DreamEntryScreen;
