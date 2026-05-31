@@ -1,4 +1,4 @@
-name: Build APK
+name: Build apk
 on:
   push:
     branches: [ main, master ]
@@ -9,6 +9,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu' # Sahi Java compiler download karne ke liye
+          java-version: '17'
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
