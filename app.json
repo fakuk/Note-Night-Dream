@@ -30,13 +30,16 @@
         "android.permission.READ_MEDIA_AUDIO"
       ]
     },
-    "plugins": [
+        "plugins": [
       [
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
         }
       ]
-    ]
-  }
-}
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "apni-expo-project-id-yahan-likhein"
+      }
+    }
