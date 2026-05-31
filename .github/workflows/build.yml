@@ -20,6 +20,13 @@ jobs:
           npm install -g eas-cli
           npm install --legacy-peer-deps
 
+      - name: Initialize EAS Project
+        run: |
+          # Yeh commands project ko automatic aapke expo account se link kar dengi
+          eas project:init --name "NoteNightDream" --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
       - name: Build Android Preview (APK)
         run: eas build --platform android --profile preview --non-interactive
         env:
